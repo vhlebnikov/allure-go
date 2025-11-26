@@ -34,6 +34,10 @@ func (m *execMockAttach) GetName() string {
 	return m.name
 }
 
+func (m *execMockAttach) GetTestResult() *allure.Result {
+	return nil
+}
+
 func TestAllureManager_Attachment(t *testing.T) {
 	mock := newExecMockAttach(constants.TestContextName)
 	attach := allure.NewAttachment("testAttach", allure.Text, []byte("test"))

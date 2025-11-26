@@ -195,6 +195,11 @@ func (r *runner) RunTests() SuiteResult {
 
 					// after each hook
 					defer func() {
+						// Set default status to Passed if not set (before AfterEach hook)
+						// This allows AfterEach to see the test status
+						if result := testT.GetProvider().GetResult(); result != nil && result.Status == "" {
+							result.Status = allure.Passed
+						}
 						_, _ = runHook(testT, afterEachHook)
 					}()
 

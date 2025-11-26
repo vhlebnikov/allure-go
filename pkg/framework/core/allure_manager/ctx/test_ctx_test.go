@@ -35,3 +35,147 @@ func TestTestCtx_AddAttachment(t *testing.T) {
 	require.Len(t, test.result.Attachments, 1)
 	require.Equal(t, attach, test.result.Attachments[0])
 }
+
+// Tests for GetTestResult functionality in test context
+func TestTestCtx_GetTestResult(t *testing.T) {
+	result := allure.NewResult("TestName", "TestFullName")
+	result.Status = allure.Passed
+
+	testCtx := NewTestCtx(result)
+
+	retrievedResult := testCtx.GetTestResult()
+	require.NotNil(t, retrievedResult)
+	require.Equal(t, result, retrievedResult)
+	require.Equal(t, allure.Passed, retrievedResult.Status)
+	require.Equal(t, "TestName", retrievedResult.Name)
+}
+
+func TestTestCtx_GetTestResult_WithDifferentStatuses(t *testing.T) {
+	testCases := []struct {
+		name   string
+		status allure.Status
+	}{
+		{"Passed", allure.Passed},
+		{"Failed", allure.Failed},
+		{"Broken", allure.Broken},
+		{"Skipped", allure.Skipped},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := allure.NewResult("Test", "FullTest")
+			result.Status = tc.status
+
+			testCtx := NewTestCtx(result)
+
+			retrievedResult := testCtx.GetTestResult()
+			require.NotNil(t, retrievedResult)
+			require.Equal(t, tc.status, retrievedResult.Status)
+		})
+	}
+}
+
+func TestTestCtx_GetTestResult_NilResult(t *testing.T) {
+	testCtx := testCtx{name: constants.TestContextName, result: nil}
+
+	retrievedResult := testCtx.GetTestResult()
+	require.Nil(t, retrievedResult)
+}
+
+func TestTestCtx_GetName_TestContext(t *testing.T) {
+	result := allure.NewResult("TestName", "TestFullName")
+	testCtx := NewTestCtx(result)
+
+	name := testCtx.GetName()
+	require.Equal(t, constants.TestContextName, name)
+}
+
+// Additional tests for parametrized and nested test scenarios
+func TestTestCtx_GetTestResult_ParametrizedTest(t *testing.T) {
+	// Simulate parametrized test result
+	result := allure.NewResult("TestParametrized", "suite.TestParametrized")
+	result.Status = allure.Passed
+
+	testCtx := NewTestCtx(result)
+
+	retrievedResult := testCtx.GetTestResult()
+	require.NotNil(t, retrievedResult)
+	require.Equal(t, allure.Passed, retrievedResult.Status)
+	require.Equal(t, "TestParametrized", retrievedResult.Name)
+}
+
+func TestTestCtx_GetTestResult_NestedTest(t *testing.T) {
+	// Simulate nested test result
+	result := allure.NewResult("TestNested", "suite.TestNested")
+	result.Status = allure.Passed
+
+	testCtx := NewTestCtx(result)
+
+	retrievedResult := testCtx.GetTestResult()
+	require.NotNil(t, retrievedResult)
+	require.Equal(t, allure.Passed, retrievedResult.Status)
+}
+
+func TestTestCtx_GetTestResult_WithStatusDetails(t *testing.T) {
+	result := allure.NewResult("TestWithDetails", "suite.TestWithDetails")
+	result.Status = allure.Failed
+	result.SetStatusMessage("Assertion failed: expected 1, got 2")
+	result.SetStatusTrace("trace stack here")
+
+	testCtx := NewTestCtx(result)
+
+	retrievedResult := testCtx.GetTestResult()
+	require.NotNil(t, retrievedResult)
+	require.Equal(t, allure.Failed, retrievedResult.Status)
+	require.Equal(t, "Assertion failed: expected 1, got 2", retrievedResult.GetStatusMessage())
+	require.Equal(t, "trace stack here", retrievedResult.GetStatusTrace())
+}
+
+func TestTestCtx_GetTestResult_BrokenTest(t *testing.T) {
+	result := allure.NewResult("BrokenTest", "suite.BrokenTest")
+	result.Status = allure.Broken
+	result.SetStatusMessage("Panic occurred")
+
+	testCtx := NewTestCtx(result)
+
+	retrievedResult := testCtx.GetTestResult()
+	require.NotNil(t, retrievedResult)
+	require.Equal(t, allure.Broken, retrievedResult.Status)
+	require.Contains(t, retrievedResult.GetStatusMessage(), "Panic occurred")
+}
+
+func TestTestCtx_GetTestResult_SkippedTest(t *testing.T) {
+	result := allure.NewResult("SkippedTest", "suite.SkippedTest")
+	result.Status = allure.Skipped
+	result.SetStatusMessage("Test skipped")
+
+	testCtx := NewTestCtx(result)
+
+	retrievedResult := testCtx.GetTestResult()
+	require.NotNil(t, retrievedResult)
+	require.Equal(t, allure.Skipped, retrievedResult.Status)
+}
+
+// Test concurrent access to result
+func TestTestCtx_GetTestResult_ConcurrentAccess(t *testing.T) {
+	result := allure.NewResult("ConcurrentTest", "suite.ConcurrentTest")
+	result.Status = allure.Passed
+
+	testCtx := NewTestCtx(result)
+
+	const numGoroutines = 20
+	done := make(chan bool, numGoroutines)
+
+	for i := 0; i < numGoroutines; i++ {
+		go func() {
+			r := testCtx.GetTestResult()
+			require.NotNil(t, r)
+			require.Equal(t, allure.Passed, r.Status)
+			done <- true
+		}()
+	}
+
+	for i := 0; i < numGoroutines; i++ {
+		<-done
+	}
+}

@@ -39,6 +39,10 @@ func (m *executionContextRunnerMock) GetName() string {
 	return m.name
 }
 
+func (m *executionContextRunnerMock) GetTestResult() *allure.Result {
+	return nil
+}
+
 type providerMockRunner struct {
 	provider.AllureForwardFull
 

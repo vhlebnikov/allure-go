@@ -39,6 +39,9 @@ type T interface {
 	WithNewAsyncStep(stepName string, step func(sCtx StepCtx), params ...*allure.Parameter)
 	WithTestSetup(setup func(T))
 	WithTestTeardown(teardown func(T))
+
+	// GetCurrentTestResult returns the current test result (available in AfterEach hook)
+	GetCurrentTestResult() *allure.Result
 }
 
 type StepCtx interface {

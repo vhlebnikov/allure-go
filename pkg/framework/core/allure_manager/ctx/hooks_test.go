@@ -95,3 +95,127 @@ func TestHooksCtx_AddAttachment(t *testing.T) {
 	require.Len(t, afterEach.container.Afters[0].Attachments, 1)
 	require.Equal(t, attach, afterEach.container.Afters[0].Attachments[0])
 }
+
+// Tests for GetTestResult functionality
+func TestNewAfterEachCtxWithResult(t *testing.T) {
+	container := allure.NewContainer()
+	result := allure.NewResult("TestName", "TestFullName")
+	result.Status = allure.Passed
+
+	ctx := NewAfterEachCtxWithResult(container, result)
+	require.NotNil(t, ctx)
+
+	// Verify we can get the result back
+	retrievedResult := ctx.GetTestResult()
+	require.NotNil(t, retrievedResult)
+	require.Equal(t, result, retrievedResult)
+	require.Equal(t, allure.Passed, retrievedResult.Status)
+	require.Equal(t, "TestName", retrievedResult.Name)
+}
+
+func TestHooksCtx_GetTestResult_AfterEach(t *testing.T) {
+	container := allure.NewContainer()
+	testResult := allure.NewResult("TestName", "TestFullName")
+	testResult.Status = allure.Failed
+	testResult.SetStatusMessage("Test failed")
+
+	ctx := NewAfterEachCtxWithResult(container, testResult)
+
+	result := ctx.GetTestResult()
+	require.NotNil(t, result)
+	require.Equal(t, allure.Failed, result.Status)
+	require.Equal(t, "TestName", result.Name)
+	require.Equal(t, "Test failed", result.GetStatusMessage())
+}
+
+func TestHooksCtx_GetTestResult_NilForOtherContexts(t *testing.T) {
+	container := allure.NewContainer()
+
+	// BeforeEach should return nil
+	beforeEachCtx := NewBeforeEachCtx(container)
+	require.Nil(t, beforeEachCtx.GetTestResult())
+
+	// BeforeAll should return nil
+	beforeAllCtx := NewBeforeAllCtx(container)
+	require.Nil(t, beforeAllCtx.GetTestResult())
+
+	// AfterEach without result should return nil
+	afterEachCtx := NewAfterEachCtx(container)
+	require.Nil(t, afterEachCtx.GetTestResult())
+}
+
+// Tests for parametrized test scenarios
+func TestHooksCtx_GetTestResult_ParametrizedTestScenario(t *testing.T) {
+	// Simulate a parametrized test where the parent test is Passed
+	// even though subtests may have failed
+	container := allure.NewContainer()
+	parentResult := allure.NewResult("TestParametrized", "FullTestParametrized")
+	parentResult.Status = allure.Passed // Parent can be Passed even if subtests fail
+
+	ctx := NewAfterEachCtxWithResult(container, parentResult)
+
+	result := ctx.GetTestResult()
+	require.NotNil(t, result)
+	require.Equal(t, allure.Passed, result.Status)
+	require.Equal(t, "TestParametrized", result.Name)
+}
+
+// Test for nested test scenario
+func TestHooksCtx_GetTestResult_NestedTestScenario(t *testing.T) {
+	// Simulate nested tests where parent test status may differ from subtests
+	container := allure.NewContainer()
+
+	// Parent test can be Passed even if nested subtests failed
+	parentResult := allure.NewResult("TestNested", "FullTestNested")
+	parentResult.Status = allure.Passed
+
+	ctx := NewAfterEachCtxWithResult(container, parentResult)
+
+	result := ctx.GetTestResult()
+	require.NotNil(t, result)
+	require.Equal(t, allure.Passed, result.Status)
+}
+
+// Test for BeforeEach failure scenario
+func TestHooksCtx_GetTestResult_BeforeEachFailure(t *testing.T) {
+	container := allure.NewContainer()
+
+	// When BeforeEach fails, test doesn't run but result is created with Failed status
+	result := allure.NewResult("TestWillNotRun", "FullTestWillNotRun")
+	result.Status = allure.Failed
+	result.SetStatusMessage("TestWillNotRun/BeforeEach setup was failed")
+
+	ctx := NewAfterEachCtxWithResult(container, result)
+
+	retrievedResult := ctx.GetTestResult()
+	require.NotNil(t, retrievedResult)
+	require.Equal(t, allure.Failed, retrievedResult.Status)
+	require.Contains(t, retrievedResult.GetStatusMessage(), "setup was failed")
+}
+
+// Test concurrent access safety
+func TestHooksCtx_GetTestResult_ConcurrentAccess(t *testing.T) {
+	container := allure.NewContainer()
+	result := allure.NewResult("TestConcurrent", "FullTestConcurrent")
+	result.Status = allure.Passed
+
+	ctx := NewAfterEachCtxWithResult(container, result)
+
+	// Multiple goroutines reading the result
+	const numGoroutines = 10
+	done := make(chan bool, numGoroutines)
+
+	for i := 0; i < numGoroutines; i++ {
+		go func() {
+			r := ctx.GetTestResult()
+			require.NotNil(t, r)
+			require.Equal(t, allure.Passed, r.Status)
+			done <- true
+		}()
+	}
+
+	// Wait for all goroutines
+	for i := 0; i < numGoroutines; i++ {
+		<-done
+	}
+}

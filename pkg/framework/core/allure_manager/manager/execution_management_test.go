@@ -124,3 +124,91 @@ func TestAllureManager_TestContext(t *testing.T) {
 	require.NotNil(t, manager.executionContext)
 	require.Equal(t, constants.TestContextName, manager.executionContext.GetName())
 }
+
+// Tests for context creation with test results
+func TestAllureManager_AfterEachContextWithResult(t *testing.T) {
+	result := allure.NewResult("TestName", "FullTestName")
+	result.Status = allure.Passed
+
+	manager := allureManager{
+		testMeta: &testMetaMockExecM{
+			result:    result,
+			container: allure.NewContainer(),
+		},
+	}
+
+	// Create AfterEach context (should have access to test result)
+	manager.AfterEachContext()
+
+	require.NotNil(t, manager.executionContext)
+	require.Equal(t, constants.AfterEachContextName, manager.executionContext.GetName())
+
+	// Verify we can get the test result from the context
+	retrievedResult := manager.executionContext.GetTestResult()
+	require.NotNil(t, retrievedResult)
+	require.Equal(t, allure.Passed, retrievedResult.Status)
+	require.Equal(t, "TestName", retrievedResult.Name)
+}
+
+func TestAllureManager_AfterEachContextWithFailedResult(t *testing.T) {
+	result := allure.NewResult("FailedTest", "FullFailedTest")
+	result.Status = allure.Failed
+	result.SetStatusMessage("Test assertion failed")
+
+	manager := allureManager{
+		testMeta: &testMetaMockExecM{
+			result:    result,
+			container: allure.NewContainer(),
+		},
+	}
+
+	manager.AfterEachContext()
+
+	retrievedResult := manager.executionContext.GetTestResult()
+	require.NotNil(t, retrievedResult)
+	require.Equal(t, allure.Failed, retrievedResult.Status)
+	require.Equal(t, "Test assertion failed", retrievedResult.GetStatusMessage())
+}
+
+// Test parametrized test scenario
+func TestAllureManager_AfterEachContext_ParametrizedTestScenario(t *testing.T) {
+	// Parent test result (parametrized test)
+	parentResult := allure.NewResult("TestParametrized", "FullTestParametrized")
+	parentResult.Status = allure.Passed // Parent can be Passed even if subtests fail
+
+	manager := allureManager{
+		testMeta: &testMetaMockExecM{
+			result:    parentResult,
+			container: allure.NewContainer(),
+		},
+	}
+
+	manager.AfterEachContext()
+
+	retrievedResult := manager.executionContext.GetTestResult()
+	require.NotNil(t, retrievedResult)
+	require.Equal(t, allure.Passed, retrievedResult.Status)
+	require.Equal(t, "TestParametrized", retrievedResult.Name)
+}
+
+// Test BeforeEach failure scenario
+func TestAllureManager_AfterEachContext_BeforeEachFailure(t *testing.T) {
+	// When BeforeEach fails, test doesn't run but result is created
+	result := allure.NewResult("TestWillNotRun", "FullTestWillNotRun")
+	result.Status = allure.Failed
+	result.SetStatusMessage("TestName/BeforeEach setup was failed")
+
+	manager := allureManager{
+		testMeta: &testMetaMockExecM{
+			result:    result,
+			container: allure.NewContainer(),
+		},
+	}
+
+	manager.AfterEachContext()
+
+	retrievedResult := manager.executionContext.GetTestResult()
+	require.NotNil(t, retrievedResult)
+	require.Equal(t, allure.Failed, retrievedResult.Status)
+	require.Contains(t, retrievedResult.GetStatusMessage(), "setup was failed")
+}

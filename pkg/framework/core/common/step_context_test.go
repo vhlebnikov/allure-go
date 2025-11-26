@@ -144,6 +144,10 @@ func (m *executionCtxMock) GetName() string {
 	return m.name
 }
 
+func (m *executionCtxMock) GetTestResult() *allure.Result {
+	return nil
+}
+
 func TestNewStepCtx(t *testing.T) {
 	params := allure.NewParameters("p1", "v1", "p2", "v2")
 	ctx := NewStepCtx(

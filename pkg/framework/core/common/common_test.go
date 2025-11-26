@@ -42,12 +42,16 @@ func (m *executionContextCommMock) GetName() string {
 	return m.name
 }
 
+func (m *executionContextCommMock) GetTestResult() *allure.Result {
+	return nil
+}
+
 type providerMockCommon struct {
 	provider.AllureForwardFull
 
 	testMetaMock  provider.TestMeta
 	suiteMetaMock *suiteMetaMockCommon
-	executionMock *executionContextCommMock
+	executionMock provider.ExecutionContext // Changed to interface
 }
 
 func newProviderMockCommon(name, fullName string) *providerMockCommon {
@@ -427,4 +431,107 @@ func TestCopyLabels(t *testing.T) {
 	require.NotEmpty(t, target.GetLabels(allure.Owner))
 	require.Len(t, target.GetLabels(allure.Owner), 1)
 	require.Equal(t, owner, target.GetLabels(allure.Owner)[0])
+}
+
+// Tests for GetCurrentTestResult functionality
+func TestCommon_GetCurrentTestResult_AfterEachContext(t *testing.T) {
+	testResult := allure.NewResult("TestName", "TestFullName")
+	testResult.Status = allure.Failed
+	testResult.SetStatusMessage("Test failed")
+
+	// Mock execution context that returns test result (AfterEach context)
+	execContext := &executionContextWithResult{
+		name:       constants.AfterEachContextName,
+		testResult: testResult,
+	}
+
+	provider := &providerMockCommon{
+		testMetaMock:  &testMetaMockCommon{result: testResult},
+		executionMock: execContext,
+	}
+
+	comm := Common{Provider: provider}
+
+	result := comm.GetCurrentTestResult()
+	require.NotNil(t, result)
+	require.Equal(t, allure.Failed, result.Status)
+	require.Equal(t, "TestName", result.Name)
+	require.Equal(t, "Test failed", result.GetStatusMessage())
+}
+
+func TestCommon_GetCurrentTestResult_NilInTestContext(t *testing.T) {
+	testResult := allure.NewResult("TestName", "TestFullName")
+
+	// Mock test context - should return nil
+	execContext := &executionContextWithResult{
+		name:       constants.TestContextName,
+		testResult: testResult,
+	}
+
+	provider := &providerMockCommon{
+		testMetaMock:  &testMetaMockCommon{result: testResult},
+		executionMock: execContext,
+	}
+
+	comm := Common{Provider: provider}
+
+	result := comm.GetCurrentTestResult()
+	require.Nil(t, result, "GetCurrentTestResult should return nil in test context")
+}
+
+func TestCommon_GetCurrentTestResult_NilInBeforeEachContext(t *testing.T) {
+	testResult := allure.NewResult("TestName", "TestFullName")
+
+	// Mock BeforeEach context - should return nil
+	execContext := &executionContextWithResult{
+		name:       constants.BeforeEachContextName,
+		testResult: testResult,
+	}
+
+	provider := &providerMockCommon{
+		testMetaMock:  &testMetaMockCommon{result: testResult},
+		executionMock: execContext,
+	}
+
+	comm := Common{Provider: provider}
+
+	result := comm.GetCurrentTestResult()
+	require.Nil(t, result, "GetCurrentTestResult should return nil in BeforeEach context")
+}
+
+func TestCommon_GetCurrentTestResult_NilProviderOrContext(t *testing.T) {
+	// Test with nil Provider
+	comm := Common{Provider: nil}
+	require.Nil(t, comm.GetCurrentTestResult())
+
+	// Test with nil ExecutionContext
+	provider := &providerMockCommon{
+		executionMock: nil,
+	}
+	comm = Common{Provider: provider}
+	require.Nil(t, comm.GetCurrentTestResult())
+}
+
+// Mock execution context for testing GetCurrentTestResult
+type executionContextWithResult struct {
+	name        string
+	testResult  *allure.Result
+	steps       []*allure.Step
+	attachments []*allure.Attachment
+}
+
+func (m *executionContextWithResult) AddStep(step *allure.Step) {
+	m.steps = append(m.steps, step)
+}
+
+func (m *executionContextWithResult) AddAttachments(attachments ...*allure.Attachment) {
+	m.attachments = append(m.attachments, attachments...)
+}
+
+func (m *executionContextWithResult) GetName() string {
+	return m.name
+}
+
+func (m *executionContextWithResult) GetTestResult() *allure.Result {
+	return m.testResult
 }
