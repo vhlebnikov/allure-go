@@ -179,7 +179,11 @@ func (c *Common) Breakf(format string, args ...interface{}) {
 // Name ...
 func (c *Common) Name() string {
 	if c.GetProvider() != nil && c.GetProvider().GetResult() != nil {
-		return c.GetProvider().GetResult().Name
+		name := c.GetProvider().GetResult().Name
+
+		if name != "" {
+			return name
+		}
 	}
 
 	return c.TestingT.Name()
