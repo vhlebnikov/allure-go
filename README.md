@@ -44,7 +44,7 @@ Providing a separate package allows you to customize your work with allure.<br>
 #### GetCurrentTestResult method
 
 Now you can access test execution result in `AfterEach` hook:<br>
-- `t.GetCurrentTestResult()` - returns current test result with status and details<br>
+- `t.GetCurrentTestResult()` - returns current test result with status and details (read-only copy)<br>
 
 This allows you to perform conditional actions based on test status (Passed, Failed, Broken, Skipped).<br>
 
@@ -52,14 +52,14 @@ This allows you to perform conditional actions based on test status (Passed, Fai
 
 ```go
 func (s *MySuite) AfterEach(t provider.T) {
-    result := t.GetCurrentTestResult()
-    if result != nil && result.Status == allure.Failed {
+    result, ok := t.GetCurrentTestResult()
+    if ok && result.Status == allure.Failed {
         // Save screenshot only for failed tests
         screenshot := takeScreenshot()
         t.WithNewAttachment("failure.png", allure.ImagePng, screenshot)
         
-        // Check if BeforeEach failed
-        if strings.Contains(result.GetStatusMessage(), "Setup failed") {
+        // Check error message
+        if strings.Contains(result.StatusDetails.Message, "Setup failed") {
             t.Log("Test didn't run - BeforeEach hook failed, skipping cleanup")
         }
     }
@@ -77,9 +77,9 @@ func (s *MySuite) BeforeEach(t provider.T) {
 }
 
 func (s *MySuite) AfterEach(t provider.T) {
-    result := t.GetCurrentTestResult()
-    if result != nil && result.Status == allure.Failed && 
-       strings.Contains(result.GetStatusMessage(), "Setup failed") {
+    result, ok := t.GetCurrentTestResult()
+    if ok && result.Status == allure.Failed && 
+       strings.Contains(result.StatusDetails.Message, "Setup failed") {
         t.Log("BeforeEach failed - test was not executed")
     }
 }
@@ -88,8 +88,8 @@ func (s *MySuite) AfterEach(t provider.T) {
 **Important Notes:**
 
 :information_source: This feature **does not change** hook or test behavior - it only provides read-only access to test status.<br>
-:information_source: `GetCurrentTestResult()` is available only in `AfterEach` hook.<br>
-:information_source: Returns `nil` in other contexts (BeforeEach, BeforeAll, AfterAll, test body).<br>
+:information_source: `GetCurrentTestResult()` returns `(*allure.CurrentResult, bool)` - a read-only copy with `Status` and `StatusDetails` fields.<br>
+:information_source: Available **only in `AfterEach` hook** - returns `(nil, false)` in other contexts (BeforeEach, BeforeAll, AfterAll, test body).<br>
 :information_source: For **parametrized tests** (using `t.Run()`): AfterEach is called once for the parent test, not for each subtest.<br>
 :information_source: For **nested tests**: AfterEach sees the parent test status, which may be Passed even if subtests failed.<br>
 
@@ -747,30 +747,30 @@ type StatusInHooksSuite struct {
 }
 
 func (s *StatusInHooksSuite) AfterEach(t provider.T) {
-	// Get the test result from execution context
-	result := t.GetCurrentTestResult()
+	// Get the test result from execution context (read-only copy)
+	result, ok := t.GetCurrentTestResult()
 	
-	if result != nil {
+	if ok {
 		switch result.Status {
 		case allure.Failed:
 			// Check if BeforeEach failed
-			if strings.Contains(result.GetStatusMessage(), "Setup failed") {
+			if strings.Contains(result.StatusDetails.Message, "Setup failed") {
 				t.Log("BeforeEach hook failed, skipping cleanup")
 				return
 			}
 			
 			// Handle test failure
-			t.Logf("Test failed: %s", result.Name)
+			t.Log("Test failed")
 			// You can save screenshot, logs, etc.
 			// screenshot := takeScreenshot()
 			// t.WithNewAttachment("failure.png", allure.ImagePng, screenshot)
 			
 		case allure.Passed:
-			t.Logf("Test passed: %s", result.Name)
+			t.Log("Test passed")
 			// Cleanup test data for successful tests
 			
 		case allure.Broken:
-			t.Logf("Test broken: %s", result.Name)
+			t.Log("Test broken")
 		}
 	}
 }
@@ -786,11 +786,12 @@ func TestStatusInHooks(t *testing.T) {
 ```
 
 Key points:
-- `t.GetCurrentTestResult()` returns `*allure.Result` with test status and details in `AfterEach`
+- `t.GetCurrentTestResult()` returns `(*allure.CurrentResult, bool)` with test status and details in `AfterEach`
+- `allure.CurrentResult` is a read-only copy containing `Status` and `StatusDetails` fields
 - Available statuses: `allure.Passed`, `allure.Failed`, `allure.Broken`, `allure.Skipped`
-- Returns `nil` in contexts other than `AfterEach` (e.g., in test body, `BeforeEach`, or `AfterAll`)
-- Check `result.GetStatusMessage()` for "Setup failed" to detect `BeforeEach` failures
-- Does not change hook or test behavior - only provides read access to test status
+- Returns `(nil, false)` in contexts other than `AfterEach` (e.g., in test body, `BeforeEach`, or `AfterAll`)
+- Check `result.StatusDetails.Message` or `result.StatusDetails.Trace` to analyze failure reasons
+- Does not change hook or test behavior - only provides read-only access to test status
 
 
 ### [XSkip](examples/suite_demo/fails_test.go)

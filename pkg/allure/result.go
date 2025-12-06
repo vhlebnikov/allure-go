@@ -43,6 +43,12 @@ type Result struct {
 	ToPrint bool `json:"-"` // If false - the report will not be saved to a file
 }
 
+// CurrentResult Use for getting current test result in AfterEach hook
+type CurrentResult struct {
+	Status        Status       `json:"status,omitempty"`        // Status of the test execution
+	StatusDetails StatusDetail `json:"statusDetails,omitempty"` // Details about the test (for example, errors during test execution will be recorded here)
+}
+
 // NewResult Constructor Builds a new `allure.Result`. Sets the default values for the structure.
 // ================================================
 // |Field Value| Default                          |
@@ -341,4 +347,11 @@ func (result *Result) ToJSON() ([]byte, error) {
 func getMD5Hash(text string) string {
 	hash := md5.Sum([]byte(text))
 	return hex.EncodeToString(hash[:])
+}
+
+func (result *CurrentResult) GetStatusMessage() string {
+	return result.StatusDetails.Message
+}
+func (result *CurrentResult) GetStatusTrace() string {
+	return result.StatusDetails.Trace
 }

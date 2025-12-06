@@ -452,10 +452,9 @@ func TestCommon_GetCurrentTestResult_AfterEachContext(t *testing.T) {
 
 	comm := Common{Provider: provider}
 
-	result := comm.GetCurrentTestResult()
+	result, _ := comm.GetCurrentTestResult()
 	require.NotNil(t, result)
 	require.Equal(t, allure.Failed, result.Status)
-	require.Equal(t, "TestName", result.Name)
 	require.Equal(t, "Test failed", result.GetStatusMessage())
 }
 
@@ -475,7 +474,7 @@ func TestCommon_GetCurrentTestResult_NilInTestContext(t *testing.T) {
 
 	comm := Common{Provider: provider}
 
-	result := comm.GetCurrentTestResult()
+	result, _ := comm.GetCurrentTestResult()
 	require.Nil(t, result, "GetCurrentTestResult should return nil in test context")
 }
 
@@ -495,21 +494,23 @@ func TestCommon_GetCurrentTestResult_NilInBeforeEachContext(t *testing.T) {
 
 	comm := Common{Provider: provider}
 
-	result := comm.GetCurrentTestResult()
+	result, _ := comm.GetCurrentTestResult()
 	require.Nil(t, result, "GetCurrentTestResult should return nil in BeforeEach context")
 }
 
 func TestCommon_GetCurrentTestResult_NilProviderOrContext(t *testing.T) {
 	// Test with nil Provider
 	comm := Common{Provider: nil}
-	require.Nil(t, comm.GetCurrentTestResult())
+	res, _ := comm.GetCurrentTestResult()
+	require.Nil(t, res)
 
 	// Test with nil ExecutionContext
 	provider := &providerMockCommon{
 		executionMock: nil,
 	}
 	comm = Common{Provider: provider}
-	require.Nil(t, comm.GetCurrentTestResult())
+	res, _ = comm.GetCurrentTestResult()
+	require.Nil(t, res)
 }
 
 // Mock execution context for testing GetCurrentTestResult

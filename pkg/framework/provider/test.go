@@ -41,7 +41,7 @@ type T interface {
 	WithTestTeardown(teardown func(T))
 
 	// GetCurrentTestResult returns the current test result (available in AfterEach hook)
-	GetCurrentTestResult() *allure.Result
+	GetCurrentTestResult() (*allure.CurrentResult, bool)
 }
 
 type StepCtx interface {

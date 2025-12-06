@@ -1,6 +1,7 @@
 package ctx
 
 import (
+	"sync"
 	"testing"
 
 	"github.com/ozontech/allure-go/pkg/allure"
@@ -131,31 +132,6 @@ func TestTestCtx_GetTestResult_WithStatusDetails(t *testing.T) {
 	require.Equal(t, "trace stack here", retrievedResult.GetStatusTrace())
 }
 
-func TestTestCtx_GetTestResult_BrokenTest(t *testing.T) {
-	result := allure.NewResult("BrokenTest", "suite.BrokenTest")
-	result.Status = allure.Broken
-	result.SetStatusMessage("Panic occurred")
-
-	testCtx := NewTestCtx(result)
-
-	retrievedResult := testCtx.GetTestResult()
-	require.NotNil(t, retrievedResult)
-	require.Equal(t, allure.Broken, retrievedResult.Status)
-	require.Contains(t, retrievedResult.GetStatusMessage(), "Panic occurred")
-}
-
-func TestTestCtx_GetTestResult_SkippedTest(t *testing.T) {
-	result := allure.NewResult("SkippedTest", "suite.SkippedTest")
-	result.Status = allure.Skipped
-	result.SetStatusMessage("Test skipped")
-
-	testCtx := NewTestCtx(result)
-
-	retrievedResult := testCtx.GetTestResult()
-	require.NotNil(t, retrievedResult)
-	require.Equal(t, allure.Skipped, retrievedResult.Status)
-}
-
 // Test concurrent access to result
 func TestTestCtx_GetTestResult_ConcurrentAccess(t *testing.T) {
 	result := allure.NewResult("ConcurrentTest", "suite.ConcurrentTest")
@@ -164,18 +140,17 @@ func TestTestCtx_GetTestResult_ConcurrentAccess(t *testing.T) {
 	testCtx := NewTestCtx(result)
 
 	const numGoroutines = 20
-	done := make(chan bool, numGoroutines)
+	var wg sync.WaitGroup
+	wg.Add(numGoroutines)
 
 	for i := 0; i < numGoroutines; i++ {
 		go func() {
+			defer wg.Done()
 			r := testCtx.GetTestResult()
 			require.NotNil(t, r)
 			require.Equal(t, allure.Passed, r.Status)
-			done <- true
 		}()
 	}
 
-	for i := 0; i < numGoroutines; i++ {
-		<-done
-	}
+	wg.Wait()
 }

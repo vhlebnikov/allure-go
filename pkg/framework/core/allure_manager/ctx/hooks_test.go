@@ -1,6 +1,7 @@
 package ctx
 
 import (
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -203,19 +204,17 @@ func TestHooksCtx_GetTestResult_ConcurrentAccess(t *testing.T) {
 
 	// Multiple goroutines reading the result
 	const numGoroutines = 10
-	done := make(chan bool, numGoroutines)
+	var wg sync.WaitGroup
+	wg.Add(numGoroutines)
 
 	for i := 0; i < numGoroutines; i++ {
 		go func() {
+			defer wg.Done()
 			r := ctx.GetTestResult()
 			require.NotNil(t, r)
 			require.Equal(t, allure.Passed, r.Status)
-			done <- true
 		}()
 	}
 
-	// Wait for all goroutines
-	for i := 0; i < numGoroutines; i++ {
-		<-done
-	}
+	wg.Wait()
 }

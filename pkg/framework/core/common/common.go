@@ -102,15 +102,19 @@ func (c *Common) GetProvider() provider.Provider {
 }
 
 // GetCurrentTestResult returns the current test result (available in AfterEach hook)
-func (c *Common) GetCurrentTestResult() *allure.Result {
+func (c *Common) GetCurrentTestResult() (result *allure.CurrentResult, ok bool) {
 	if c.Provider != nil && c.Provider.ExecutionContext() != nil {
 		// Only return result in AfterEach context
 		ctxName := c.Provider.ExecutionContext().GetName()
 		if ctxName == constants.AfterEachContextName {
-			return c.Provider.ExecutionContext().GetTestResult()
+			var currentFullResult = c.Provider.ExecutionContext().GetTestResult()
+			return &allure.CurrentResult{
+				Status:        currentFullResult.Status,
+				StatusDetails: currentFullResult.StatusDetails,
+			}, true
 		}
 	}
-	return nil
+	return nil, false
 }
 
 // SkipOnPrint skips creating of report for current test
