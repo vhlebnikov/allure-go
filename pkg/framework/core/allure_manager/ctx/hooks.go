@@ -11,6 +11,7 @@ import (
 type hooksCtx struct {
 	name      string
 	container *allure.Container
+	result    *allure.Result // Result of the test (for AfterEach hook)
 }
 
 // NewAfterAllCtx returns after all context
@@ -21,6 +22,11 @@ func NewAfterAllCtx(container *allure.Container) provider.ExecutionContext {
 // NewAfterEachCtx returns after each context
 func NewAfterEachCtx(container *allure.Container) provider.ExecutionContext {
 	return &hooksCtx{container: container, name: constants.AfterEachContextName}
+}
+
+// NewAfterEachCtxWithResult returns after each context with test result
+func NewAfterEachCtxWithResult(container *allure.Container, result *allure.Result) provider.ExecutionContext {
+	return &hooksCtx{container: container, result: result, name: constants.AfterEachContextName}
 }
 
 // NewBeforeAllCtx returns before all context
@@ -47,6 +53,11 @@ func (ctx *hooksCtx) AddStep(newStep *allure.Step) {
 // GetName returns context name
 func (ctx *hooksCtx) GetName() string {
 	return ctx.name
+}
+
+// GetTestResult returns test result if available (for AfterEach hook)
+func (ctx *hooksCtx) GetTestResult() *allure.Result {
+	return ctx.result
 }
 
 // AddAttachments adds attachment to the execution context

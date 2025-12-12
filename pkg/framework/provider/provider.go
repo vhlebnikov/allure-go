@@ -56,4 +56,5 @@ type ExecutionContext interface {
 	AddStep(step *allure.Step)
 	AddAttachments(attachment ...*allure.Attachment)
 	GetName() string
+	GetTestResult() *allure.Result // Returns test result if available (for test and AfterEach contexts)
 }

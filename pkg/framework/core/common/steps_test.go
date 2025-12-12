@@ -38,6 +38,10 @@ func (m *executionContextstepsCommMock) GetName() string {
 	return m.name
 }
 
+func (m *executionContextstepsCommMock) GetTestResult() *allure.Result {
+	return nil
+}
+
 type providerMockstepsCommon struct {
 	provider.AllureForwardFull
 	steps         []*allure.Step

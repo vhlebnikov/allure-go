@@ -124,3 +124,110 @@ func TestAllureManager_TestContext(t *testing.T) {
 	require.NotNil(t, manager.executionContext)
 	require.Equal(t, constants.TestContextName, manager.executionContext.GetName())
 }
+
+// Tests for context creation with test results
+func TestAllureManager_AfterEachContextWithResult(t *testing.T) {
+	result := allure.NewResult("TestName", "FullTestName")
+	result.Status = allure.Passed
+
+	manager := allureManager{
+		testMeta: &testMetaMockExecM{
+			result:    result,
+			container: allure.NewContainer(),
+		},
+	}
+
+	// Create AfterEach context (should have access to test result)
+	manager.AfterEachContext()
+
+	require.NotNil(t, manager.executionContext)
+	require.Equal(t, constants.AfterEachContextName, manager.executionContext.GetName())
+
+	// Verify we can get the test result from the context
+	retrievedResult := manager.executionContext.GetTestResult()
+	require.NotNil(t, retrievedResult)
+	require.Equal(t, allure.Passed, retrievedResult.Status)
+	require.Equal(t, "TestName", retrievedResult.Name)
+}
+
+func TestAllureManager_AfterEachContextWithDifferentStatuses(t *testing.T) {
+	tests := []struct {
+		name              string
+		testName          string
+		fullTestName      string
+		status            allure.Status
+		statusMessage     string
+		expectedStatus    allure.Status
+		messageContains   string
+		exactMessageMatch bool
+	}{
+		{
+			name:              "Failed test result",
+			testName:          "FailedTest",
+			fullTestName:      "FullFailedTest",
+			status:            allure.Failed,
+			statusMessage:     "Test assertion failed",
+			expectedStatus:    allure.Failed,
+			messageContains:   "Test assertion failed",
+			exactMessageMatch: true,
+		},
+		{
+			name:              "BeforeEach failure scenario",
+			testName:          "TestWillNotRun",
+			fullTestName:      "FullTestWillNotRun",
+			status:            allure.Failed,
+			statusMessage:     "TestName/BeforeEach setup was failed",
+			expectedStatus:    allure.Failed,
+			messageContains:   "setup was failed",
+			exactMessageMatch: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := allure.NewResult(tt.testName, tt.fullTestName)
+			result.Status = tt.status
+			result.SetStatusMessage(tt.statusMessage)
+
+			manager := allureManager{
+				testMeta: &testMetaMockExecM{
+					result:    result,
+					container: allure.NewContainer(),
+				},
+			}
+
+			manager.AfterEachContext()
+
+			retrievedResult := manager.executionContext.GetTestResult()
+			require.NotNil(t, retrievedResult)
+			require.Equal(t, tt.expectedStatus, retrievedResult.Status)
+
+			if tt.exactMessageMatch {
+				require.Equal(t, tt.messageContains, retrievedResult.GetStatusMessage())
+			} else {
+				require.Contains(t, retrievedResult.GetStatusMessage(), tt.messageContains)
+			}
+		})
+	}
+}
+
+// Test parametrized test scenario
+func TestAllureManager_AfterEachContext_ParametrizedTestScenario(t *testing.T) {
+	// Parent test result (parametrized test)
+	parentResult := allure.NewResult("TestParametrized", "FullTestParametrized")
+	parentResult.Status = allure.Passed // Parent can be Passed even if subtests fail
+
+	manager := allureManager{
+		testMeta: &testMetaMockExecM{
+			result:    parentResult,
+			container: allure.NewContainer(),
+		},
+	}
+
+	manager.AfterEachContext()
+
+	retrievedResult := manager.executionContext.GetTestResult()
+	require.NotNil(t, retrievedResult)
+	require.Equal(t, allure.Passed, retrievedResult.Status)
+	require.Equal(t, "TestParametrized", retrievedResult.Name)
+}

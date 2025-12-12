@@ -14,7 +14,7 @@ func (a *allureManager) BeforeEachContext() {
 
 // AfterEachContext initiate after each context
 func (a *allureManager) AfterEachContext() {
-	a.executionContext = ctx.NewAfterEachCtx(a.testMeta.GetContainer())
+	a.executionContext = ctx.NewAfterEachCtxWithResult(a.testMeta.GetContainer(), a.testMeta.GetResult())
 }
 
 // BeforeAllContext initiate before all context
